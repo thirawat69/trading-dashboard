@@ -1,0 +1,26 @@
+# Credentials & secrets
+.env
+data/session.json
+
+# Raw scraped data & snapshots (large, generated)
+data/raw/
+data/snapshots/
+
+# Python
+venv/
+__pycache__/
+*.pyc
+*.pyo
+.Python
+
+# Jupyter
+notebooks/.ipynb_checkpoints/
+*.ipynb_checkpoints
+
+# macOS
+.DS_Store
+
+# Editors
+.idea/
+.vscode/
+*.swp

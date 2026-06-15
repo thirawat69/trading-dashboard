@@ -1,0 +1,1518 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Gold Dashboard</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-annotation@3.0.1/dist/chartjs-plugin-annotation.min.js"></script>
+<style>
+:root {
+  --bg:     #f0f4f8;
+  --s1:     #ffffff;
+  --s2:     #f8fafc;
+  --border: #e2e8f0;
+  --text:   #1e293b;
+  --muted:  #64748b;
+  --gold:   #b45309;
+  --put:    #dc2626;
+  --call:   #1d4ed8;
+  --green:  #16a34a;
+  --red:    #dc2626;
+  --teal:   #0d9488;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html, body { height: 100%; overflow: hidden; }
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Segoe UI', sans-serif;
+  display: flex; flex-direction: column; height: 100vh;
+}
+
+/* ── Header ──────────────────────────────────────────── */
+.hdr {
+  display: flex; align-items: center; gap: 16px;
+  padding: 8px 16px;
+  background: var(--s1);
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0; min-height: 52px;
+  box-shadow: 0 1px 3px rgba(0,0,0,.06);
+}
+.badge {
+  background: var(--gold); color: #fff;
+  font-weight: 700; font-size: 11px; letter-spacing: .5px;
+  padding: 3px 8px; border-radius: 4px;
+}
+.contract { font-family: ui-monospace, Menlo, monospace; font-size: 15px; font-weight: 600; }
+.dte {
+  font-size: 11px; padding: 2px 8px; border-radius: 10px;
+  border: 1px solid rgba(180,83,9,.25); background: rgba(180,83,9,.07); color: var(--gold);
+}
+.vdiv { width: 1px; height: 28px; background: var(--border); flex-shrink: 0; }
+.kv { display: flex; flex-direction: column; gap: 1px; }
+.kv-lbl { font-size: 9px; color: var(--muted); text-transform: uppercase; letter-spacing: .6px; }
+.kv-val { font-family: ui-monospace, Menlo, monospace; font-size: 18px; font-weight: 700; color: var(--gold); line-height: 1; }
+.kv-val.sm { font-size: 13px; color: var(--text); }
+.hdr-right { display: flex; align-items: center; gap: 10px; margin-left: auto; }
+.hdr-time { font-size: 10px; color: var(--muted); font-family: monospace; }
+
+/* View toggle */
+.vtg { display: flex; gap: 2px; background: var(--bg); border: 1px solid var(--border); border-radius: 7px; padding: 2px; }
+.vtg-btn {
+  padding: 4px 13px; border-radius: 5px; border: none;
+  background: transparent; color: var(--muted);
+  font-size: 11px; font-weight: 500; cursor: pointer; transition: all .12s;
+}
+.vtg-btn.on { background: var(--gold); color: #fff; }
+.vtg-btn:hover:not(.on) { color: var(--text); background: rgba(0,0,0,.04); }
+
+/* ── Layout ──────────────────────────────────────────── */
+.body { display: flex; flex: 1; overflow: hidden; }
+
+/* ── Vol2Vol main ────────────────────────────────────── */
+.chart-wrap {
+  flex: 1; display: flex; flex-direction: column;
+  padding: 10px 14px; min-width: 0; gap: 8px;
+  background: var(--bg);
+}
+.chart-toolbar {
+  display: flex; align-items: center; gap: 10px;
+  font-size: 11px; color: var(--muted); flex-shrink: 0;
+}
+.chart-toolbar-title { font-weight: 600; color: var(--text); font-size: 12px; }
+.legend { display: flex; gap: 12px; }
+.leg-item { display: flex; align-items: center; gap: 5px; }
+.leg-dot { width: 10px; height: 10px; border-radius: 2px; }
+.chart-box {
+  flex: 1; position: relative; min-height: 0;
+  background: var(--s1); border: 1px solid var(--border);
+  border-radius: 8px; padding: 12px;
+  box-shadow: 0 1px 3px rgba(0,0,0,.05);
+}
+.axis-btn {
+  margin-left: auto;
+  padding: 3px 10px; border-radius: 5px;
+  border: 1px solid var(--border); background: var(--s1);
+  color: var(--muted); font-size: 10px; cursor: pointer;
+  transition: all .12s; font-family: monospace; white-space: nowrap;
+}
+.axis-btn:hover { background: var(--bg); color: var(--text); }
+.axis-btn.flipped { background: rgba(180,83,9,.08); border-color: rgba(180,83,9,.3); color: var(--gold); }
+
+/* ── OI Heatmap main ─────────────────────────────────── */
+.hm-main { flex: 1; display: flex; flex-direction: column; min-width: 0; overflow: hidden; background: var(--bg); }
+.hm-scroll { flex: 1; overflow: auto; padding: 12px 14px 14px; }
+
+table.hm {
+  border-collapse: collapse;
+  font-size: 11px; font-family: ui-monospace, Menlo, monospace; white-space: nowrap;
+}
+table.hm thead th {
+  position: sticky; top: 0; background: var(--s1); z-index: 3;
+  padding: 3px 5px; text-align: center;
+  color: var(--muted); font-weight: 400; font-size: 10px;
+  border-bottom: 2px solid var(--border);
+}
+table.hm thead th.th-strike {
+  position: sticky; left: 0; z-index: 5; background: var(--s1);
+  text-align: right; padding-right: 10px;
+  border-right: 1px solid var(--border); min-width: 56px;
+}
+table.hm thead .exp-name { color: var(--text); font-weight: 600; font-size: 11px; border-bottom: none; }
+table.hm thead .exp-dte { color: var(--muted); font-size: 9px; font-weight: 400; }
+table.hm thead .sub-c { color: rgba(29,78,216,.8); }
+table.hm thead .sub-p { color: rgba(220,38,38,.8); border-right: 1px solid var(--border); }
+table.hm tbody tr:hover td { background: rgba(0,0,0,.025) !important; }
+table.hm td {
+  padding: 1px 5px; text-align: center;
+  height: 19px; font-size: 11px;
+  border: 1px solid rgba(0,0,0,.04);
+}
+td.td-strike {
+  position: sticky; left: 0; z-index: 2;
+  background: var(--s2); text-align: right; padding-right: 10px;
+  color: var(--muted); border-right: 1px solid var(--border); font-size: 11px;
+}
+td.td-sep { border-right: 1px solid rgba(0,0,0,.08) !important; }
+tr.atm td.td-strike { color: var(--gold); font-weight: 700; background: rgba(180,83,9,.05); }
+tr.atm td { border-top-color: rgba(180,83,9,.2) !important; border-bottom-color: rgba(180,83,9,.2) !important; }
+
+/* ── Sidebar ─────────────────────────────────────────── */
+.sidebar {
+  width: 262px; flex-shrink: 0;
+  border-left: 1px solid var(--border);
+  background: var(--s1);
+  display: flex; flex-direction: column;
+  overflow-y: auto; padding: 12px; gap: 16px;
+}
+.sidebar > div {
+  display: flex; flex-direction: column; gap: 12px;
+}
+.card {
+  background: var(--s2); border: 1px solid var(--border);
+  border-radius: 8px; padding: 12px 14px;
+}
+.card-ttl {
+  font-size: 10px; text-transform: uppercase;
+  letter-spacing: .6px; color: var(--muted); margin-bottom: 10px;
+}
+
+/* Key Levels (Call/Put Wall) */
+.wall-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.wall-card { border-radius: 6px; padding: 8px 10px; text-align: center; }
+.wall-card.call { background: rgba(29,78,216,.07); border: 1px solid rgba(29,78,216,.18); }
+.wall-card.put  { background: rgba(220,38,38,.07);  border: 1px solid rgba(220,38,38,.18); }
+.wall-lbl { font-size: 9px; text-transform: uppercase; letter-spacing: .5px; color: var(--muted); }
+.wall-val { font-family: monospace; font-size: 17px; font-weight: 700; margin-top: 2px; }
+.wall-card.call .wall-val { color: var(--call); }
+.wall-card.put  .wall-val { color: var(--put); }
+.wall-sub { font-size: 9px; color: var(--muted); margin-top: 2px; }
+
+/* Ranges */
+.range-item { margin-bottom: 8px; }
+.range-item:last-child { margin-bottom: 0; }
+.range-hdr { display: flex; justify-content: space-between; font-size: 10px; color: var(--muted); margin-bottom: 3px; }
+.range-bar-bg { height: 22px; border-radius: 4px; background: var(--border); position: relative; overflow: hidden; }
+.range-fill {
+  position: absolute; top: 0; bottom: 0; border-radius: 4px;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 10px; font-family: monospace; font-weight: 500; white-space: nowrap; overflow: hidden;
+}
+
+/* Delta table */
+.delta-tbl { width: 100%; border-collapse: collapse; font-size: 11px; font-family: monospace; }
+.delta-tbl th { font-size: 10px; color: var(--muted); font-weight: 400; padding-bottom: 6px; text-align: center; }
+.delta-tbl td { padding: 2px 3px; text-align: center; border-radius: 2px; }
+.delta-tbl td:first-child { text-align: right; color: var(--put); }
+.delta-tbl td:last-child  { text-align: left;  color: var(--call); }
+.delta-tbl td.dlbl { color: var(--muted); font-size: 10px; }
+.delta-tbl tr:hover td { background: rgba(0,0,0,.04); }
+
+/* Stats */
+.stats-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.stt { display: flex; flex-direction: column; gap: 2px; }
+.stt-lbl { font-size: 10px; color: var(--muted); text-transform: uppercase; letter-spacing: .4px; }
+.stt-val { font-size: 15px; font-weight: 600; font-family: monospace; }
+.stt-val.put  { color: var(--put); }
+.stt-val.call { color: var(--call); }
+.stt-val.neu  { color: var(--text); }
+.pc-bar-wrap { grid-column: span 2; display: flex; align-items: center; gap: 6px; margin-top: 2px; }
+.pc-lbl { font-size: 10px; font-weight: 600; }
+.pc-track { flex: 1; height: 5px; background: var(--border); border-radius: 3px; overflow: hidden; }
+.pc-fill { height: 100%; border-radius: 3px; background: var(--put); }
+
+/* OI Sidebar */
+.mp-val { font-size: 22px; font-weight: 700; font-family: monospace; color: var(--gold); }
+.mp-sub { font-size: 11px; color: var(--muted); margin-top: 3px; font-family: monospace; }
+.exp-row { display: flex; align-items: center; gap: 6px; padding: 3px 0; font-size: 10px; font-family: monospace; }
+.exp-sym { width: 44px; color: var(--text); flex-shrink: 0; }
+.exp-bar { flex: 1; height: 3px; background: var(--border); border-radius: 2px; overflow: hidden; }
+.exp-bar-fill { height: 100%; border-radius: 2px; background: var(--put); }
+.exp-pcr { width: 30px; text-align: right; color: var(--muted); }
+.top-row { display: flex; justify-content: space-between; align-items: baseline; padding: 3px 0; font-size: 11px; font-family: monospace; }
+.top-strike { color: var(--muted); font-size: 10px; }
+.top-cv { color: var(--call); }
+.top-pv { color: var(--put); }
+
+/* ── Sentiment view ──────────────────────────────────── */
+.sent-main { flex: 1; display: flex; flex-direction: column; min-width: 0; overflow: hidden; background: var(--bg); }
+.sent-scroll { flex: 1; overflow-y: auto; padding: 12px 16px; }
+.sent-col-hdr {
+  display: flex; align-items: center; padding: 0 0 6px 0;
+  font-size: 9px; text-transform: uppercase; letter-spacing: .6px; color: var(--muted);
+}
+.sent-broker-name { width: 80px; flex-shrink: 0; }
+.sent-bar-area { flex: 1; }
+.sent-buy-lbl  { width: 40px; flex-shrink: 0; color: var(--call); text-align: left; }
+.sent-sell-lbl { width: 40px; flex-shrink: 0; color: var(--put); text-align: right; }
+.sent-row { display: flex; align-items: center; padding: 4px 0; }
+.sent-row.avg { border-top: 1px dashed var(--border); margin-top: 8px; padding-top: 10px; }
+.sent-row .broker { width: 80px; flex-shrink: 0; font-size: 11px; color: var(--muted); }
+.sent-row.avg .broker { color: var(--text); font-weight: 600; }
+.sent-bar-wrap { flex: 1; height: 20px; display: flex; border-radius: 3px; overflow: hidden; position: relative; }
+.sent-row.avg .sent-bar-wrap { height: 24px; }
+.sent-buy-bar {
+  height: 100%; background: rgba(29,78,216,.68);
+  display: flex; align-items: center; padding-left: 6px;
+  font-size: 10px; font-weight: 600; color: #fff;
+  white-space: nowrap; overflow: hidden;
+}
+.sent-sell-bar {
+  height: 100%; background: rgba(220,38,38,.65); flex: 1;
+  display: flex; align-items: center; justify-content: flex-end; padding-right: 6px;
+  font-size: 10px; font-weight: 600; color: #fff;
+  white-space: nowrap; overflow: hidden;
+}
+.sent-mid { position: absolute; left: 50%; top: 0; bottom: 0; width: 1px; background: rgba(0,0,0,.12); pointer-events: none; }
+.bias-meter { text-align: center; padding: 8px 0; }
+.bias-val { font-size: 32px; font-weight: 700; font-family: monospace; line-height: 1; }
+.bias-bar-wrap { height: 8px; background: var(--border); border-radius: 4px; overflow: hidden; margin: 8px 0 4px; }
+.bias-bar-fill { height: 100%; border-radius: 4px; }
+.bias-lbls { display: flex; justify-content: space-between; font-size: 9px; color: var(--muted); }
+.signal-box { margin-top: 8px; padding: 8px 10px; border-radius: 6px; font-size: 11px; line-height: 1.5; }
+.broker-mini { display: flex; justify-content: space-between; padding: 3px 0; font-size: 11px; font-family: monospace; border-bottom: 1px solid var(--border); }
+.broker-mini:last-child { border-bottom: none; }
+
+/* ── COT ─────────────────────────────────────────────── */
+.cot-main { flex: 1; display: flex; flex-direction: column; min-width: 0; padding: 10px 14px; gap: 8px; background: var(--bg); }
+.cot-legend { display: flex; gap: 14px; margin-left: auto; }
+.cot-leg { display: flex; align-items: center; gap: 5px; font-size: 11px; color: var(--muted); }
+.cot-leg-line { width: 20px; height: 2px; border-radius: 1px; }
+.cot-row { display: flex; justify-content: space-between; align-items: baseline; padding: 3px 0; font-size: 12px; font-family: monospace; }
+.cot-lbl { font-size: 10px; color: var(--muted); text-transform: uppercase; letter-spacing: .4px; }
+.cot-val { font-family: monospace; font-size: 13px; }
+.cot-val.pos { color: var(--green); }
+.cot-val.neg { color: var(--red); }
+.cot-val.neu { color: var(--text); }
+.gauge-wrap { margin-top: 8px; }
+.gauge-lbl-row { display: flex; justify-content: space-between; font-size: 9px; color: var(--muted); margin-bottom: 4px; }
+.gauge-track { height: 8px; background: var(--border); border-radius: 4px; position: relative; overflow: visible; }
+.gauge-fill { height: 100%; border-radius: 4px; background: linear-gradient(to right, #dc2626, #d97706, #16a34a); }
+.gauge-thumb { position: absolute; top: -3px; width: 3px; height: 14px; background: var(--text); border-radius: 2px; transform: translateX(-50%); }
+.cot-ctx { font-size: 10px; color: var(--muted); line-height: 1.3; margin-bottom: 8px; }
+.cot-bars { margin-top: 8px; }
+.cot-bars-lbl { font-size: 9px; color: var(--muted); margin-bottom: 3px; }
+.cot-bars-row { display: flex; gap: 2px; height: 12px; }
+.cot-bars-foot { display: flex; justify-content: space-between; font-size: 9px; color: var(--muted); margin-top: 2px; }
+.cot-hist-row { display: flex; gap: 2px; align-items: flex-end; height: 24px; margin-top: 4px; }
+
+/* ── Tab bar ─────────────────────────────────────────── */
+.tabs { display: flex; border-top: 1px solid var(--border); background: var(--s1); flex-shrink: 0; }
+.tab-btn {
+  flex: 1; padding: 10px 4px; border: none; background: transparent;
+  color: var(--muted); font-size: 11px; font-weight: 500; cursor: pointer;
+  border-top: 2px solid transparent; transition: color .12s;
+}
+.tab-btn:hover { color: var(--text); background: rgba(0,0,0,.02); }
+.tab-btn.on { color: var(--gold); border-top-color: var(--gold); background: rgba(180,83,9,.04); }
+</style>
+</head>
+<body>
+
+<!-- ── Header ── -->
+<header class="hdr">
+  <span class="badge" id="hProd">GOLD</span>
+  <span class="contract" id="hCode">—</span>
+  <span class="dte" id="hDte">— DTE</span>
+  <div class="vdiv"></div>
+  <div class="kv">
+    <span class="kv-lbl" id="lFut">Future</span>
+    <span class="kv-val" id="hFut">—</span>
+  </div>
+  <div class="vdiv"></div>
+  <div class="kv">
+    <span class="kv-lbl" id="lVol">ATM Vol</span>
+    <span class="kv-val sm" id="hVol">—</span>
+  </div>
+  <div class="vdiv"></div>
+  <div class="kv">
+    <span class="kv-lbl" id="lVChg">Vol Chg</span>
+    <span class="kv-val sm" id="hVChg">—</span>
+  </div>
+  <div class="hdr-right">
+    <div class="vtg">
+      <button class="vtg-btn on" data-prod="gold"   onclick="switchProduct('gold')">GOLD</button>
+      <button class="vtg-btn"    data-prod="nasdaq" onclick="switchProduct('nasdaq')">NAS100</button>
+    </div>
+    <div class="vdiv"></div>
+    <div class="vtg">
+      <button class="vtg-btn on" data-view="vol2vol"    onclick="switchView('vol2vol')">Vol2Vol</button>
+      <button class="vtg-btn"    data-view="oi"         onclick="switchView('oi')">OI Heatmap</button>
+      <button class="vtg-btn"    data-view="cot"        onclick="switchView('cot')">COT</button>
+      <button class="vtg-btn"    data-view="sentiment"  onclick="switchView('sentiment')">Sentiment</button>
+    </div>
+    <span class="hdr-time" id="hTime">—</span>
+  </div>
+</header>
+
+<div class="body">
+
+  <!-- ── Vol2Vol main ── -->
+  <div id="vv-main" class="chart-wrap">
+    <div class="chart-toolbar">
+      <span class="chart-toolbar-title" id="chartTitle">OI Profile</span>
+      <div class="legend">
+        <div class="leg-item"><div class="leg-dot" style="background:rgba(220,38,38,.75)"></div><span>Put</span></div>
+        <div class="leg-item"><div class="leg-dot" style="background:rgba(29,78,216,.75)"></div><span>Call</span></div>
+        <div class="leg-item" style="font-size:10px;color:var(--gold)">── Future</div>
+        <div class="leg-item" style="font-size:10px;color:rgba(13,148,136,.9)">-- IV Settle</div>
+      </div>
+      <button id="axisBtn" class="axis-btn" onclick="toggleAxis()">↕ X: Strike</button>
+    </div>
+    <div class="chart-box">
+      <canvas id="chart"></canvas>
+    </div>
+  </div>
+
+  <!-- ── Sentiment main ── -->
+  <div id="sent-main" class="sent-main" style="display:none">
+    <div class="sent-scroll">
+      <div class="sent-col-hdr">
+        <span class="sent-broker-name"></span>
+        <span class="sent-buy-lbl">BUY</span>
+        <span class="sent-bar-area"></span>
+        <span class="sent-sell-lbl">SELL</span>
+      </div>
+      <div id="sentRows"></div>
+    </div>
+  </div>
+
+  <!-- ── COT main ── -->
+  <div id="cot-main" class="cot-main" style="display:none">
+    <div class="chart-toolbar">
+      <span style="font-size:11px;color:var(--muted)">Managed Money Positioning — GOLD COMEX (Futures Only)</span>
+      <div class="cot-legend">
+        <div class="cot-leg"><div class="cot-leg-line" style="background:var(--gold)"></div>MM Net</div>
+        <div class="cot-leg"><div class="cot-leg-line" style="background:var(--put);opacity:.6"></div>Prod/Merchant</div>
+        <div class="cot-leg"><div class="cot-leg-line" style="background:var(--call);opacity:.5"></div>Swap Dealer</div>
+      </div>
+    </div>
+    <div class="chart-box">
+      <canvas id="cot-chart"></canvas>
+    </div>
+  </div>
+
+  <!-- ── OI Heatmap main ── -->
+  <div id="oi-main" class="hm-main" style="display:none">
+    <!-- Chart view -->
+    <div id="oi-chart-view" style="display:flex;flex-direction:column;flex:1;overflow:hidden;min-height:0">
+      <div style="display:flex;gap:4px;padding:8px 14px 6px;border-bottom:1px solid var(--border)">
+        <button class="tab-btn on" id="oict-oi" onclick="switchOIChartTab('oi')">OI</button>
+        <button class="tab-btn" id="oict-volume" onclick="switchOIChartTab('volume')">Volume</button>
+        <button class="tab-btn" id="oict-net_vol" onclick="switchOIChartTab('net_vol')">Net Volume</button>
+        <button class="tab-btn" id="oict-sum_vol" onclick="switchOIChartTab('sum_vol')">Sum Vol</button>
+      </div>
+      <div style="flex:1;position:relative;padding:12px 14px 14px;min-height:0">
+        <canvas id="oi-chart" role="img" aria-label="OI chart by strike price"></canvas>
+      </div>
+    </div>
+    <!-- Heatmap table view -->
+    <div class="hm-scroll" id="oi-table-view" style="display:none">
+      <div id="hmTable"></div>
+    </div>
+  </div>
+
+  <!-- ── Sidebar ── -->
+  <aside class="sidebar">
+
+    <!-- Vol2Vol sidebar -->
+    <div id="vv-sidebar">
+      <div class="card" style="padding:10px 14px">
+        <div class="card-ttl">Key Levels</div>
+        <div class="wall-grid" id="wallGrid"></div>
+        <div id="atmVolRow" style="margin-top:8px;padding-top:8px;border-top:1px solid var(--border);display:flex;justify-content:space-between;align-items:center">
+          <span style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.4px">ATM IV</span>
+          <span id="atmVolVal" style="font-family:monospace;font-size:14px;font-weight:600;color:var(--text)">—</span>
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-ttl">Expected Ranges</div>
+        <div id="sRanges"></div>
+      </div>
+      <div class="card">
+        <div class="card-ttl">Delta Levels</div>
+        <table class="delta-tbl">
+          <thead><tr><th>Put</th><th>Δ</th><th>Call</th></tr></thead>
+          <tbody id="sDeltas"></tbody>
+        </table>
+      </div>
+      <div class="card">
+        <div class="card-ttl">Stats</div>
+        <div class="stats-grid" id="sStats"></div>
+      </div>
+    </div>
+
+    <!-- Sentiment sidebar -->
+    <div id="sent-sidebar" style="display:none">
+      <div class="card">
+        <div class="card-ttl">Retail Bias · <span id="sentSym" style="color:var(--text)">XAUUSD</span></div>
+        <div class="bias-meter">
+          <div class="bias-val" id="sentBiasVal">—</div>
+          <div style="font-size:10px;color:var(--muted);margin-top:2px">% BUY</div>
+          <div class="bias-bar-wrap" style="margin-top:10px">
+            <div class="bias-bar-fill" id="sentBiasBar" style="width:50%"></div>
+          </div>
+          <div class="bias-lbls"><span>0%</span><span>50%</span><span>100%</span></div>
+        </div>
+        <div class="signal-box" id="sentSignal"></div>
+      </div>
+      <div class="card">
+        <div class="card-ttl">Last Update</div>
+        <div style="font-size:13px;color:var(--text);font-family:monospace" id="sentUpdated">—</div>
+        <div style="font-size:10px;color:var(--muted);margin-top:3px">fxssi.com · brokers weighted avg</div>
+      </div>
+    </div>
+
+    <!-- COT sidebar -->
+    <div id="cot-sidebar" style="display:none">
+      <div id="cot-signal" class="card"></div>
+      <div class="card">
+        <div class="card-ttl">Managed Money</div>
+        <div id="sCotMM"></div>
+      </div>
+      <div class="card">
+        <div class="card-ttl">Producer / Merchant</div>
+        <div id="sCotPM"></div>
+      </div>
+      <div class="card">
+        <div class="card-ttl">Swap Dealers</div>
+        <div id="sCotSW"></div>
+      </div>
+      <div class="card">
+        <div class="card-ttl">MM Net Positioning</div>
+        <div id="sCotGauge"></div>
+      </div>
+    </div>
+
+    <!-- OI Heatmap sidebar -->
+    <div id="oi-sidebar" style="display:none">
+      <div class="card" id="oi-summary"></div>
+      <div class="card">
+        <div class="card-ttl">Max Pain · <span id="mpExp" style="color:var(--text)">—</span></div>
+        <div class="mp-val" id="mpVal">—</div>
+        <div class="mp-sub" id="mpDist">—</div>
+      </div>
+      <div class="card">
+        <div class="card-ttl">Put/Call Ratio by Expiry</div>
+        <div id="sPCExpiry"></div>
+      </div>
+      <div class="card">
+        <div class="card-ttl">Top OI Strikes · <span style="color:var(--text)" id="topExp">—</span></div>
+        <div id="sTopOI"></div>
+      </div>
+    </div>
+
+  </aside>
+</div>
+
+<!-- Tab bars -->
+<nav class="tabs" id="vv-tabs"></nav>
+<nav class="tabs" id="oi-tabs" style="display:none">
+  <button class="tab-btn on" onclick="switchOITab('chart')">Chart</button>
+  <button class="tab-btn"    onclick="switchOITab('oi')">Open Interest</button>
+  <button class="tab-btn"    onclick="switchOITab('oi_change')">OI Change</button>
+  <button class="tab-btn"    onclick="switchOITab('volume')">Volume</button>
+</nav>
+
+<script src="data.js"></script>
+<script src="oi_data.js"></script>
+<script src="cot_data.js"></script>
+<script src="sentiment_data.js"></script>
+<script>
+const SNAP    = window.__SNAPSHOT__;
+const OI_SNAP = window.__OI_SNAPSHOT__;
+const COT     = window.__COT_SNAPSHOT__;
+const SENT    = window.__SENTIMENT__;
+
+let PRODUCT  = 'gold';
+let VIEW     = 'vol2vol';
+let VV_TAB   = 'intraday';
+let OI_TAB      = 'chart';
+let OI_CHART_TAB = 'oi';
+let OI_SORT_ASC = true;
+let _oiChart    = null;
+let SENT_SYM = 'XAUUSD';
+let axisFlipped = false;
+let vvChart  = null;
+let cotChart = null;
+
+const PRODUCT_LABELS  = { gold: 'GOLD', nasdaq: 'NAS100' };
+const PRODUCT_SENT_SYM = { gold: 'XAUUSD', nasdaq: 'NAS100' };
+
+const VV_WIN = 205;
+const VV_TAB_LABELS = {
+  oi: 'Open Interest', intraday: 'Intraday', eod: 'EOD Volume',
+  oi_change: 'OI Change', churn: 'Churn', 'churn_(oi_change/volume)': 'Churn'
+};
+const OI_TAB_KEYS = ['chart', 'oi', 'oi_change', 'volume'];
+
+const f   = (n, d = 0) => n == null ? '—' : n.toLocaleString('en-US', { minimumFractionDigits: d, maximumFractionDigits: d });
+const fk  = n => n == null ? '—' : n >= 1000 ? (n / 1000).toFixed(1) + 'k' : String(Math.round(n));
+const sgn = n => n > 0 ? '+' : '';
+
+Chart.defaults.font.family = "-apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Segoe UI', sans-serif";
+
+// ── Product switch ────────────────────────────────────────────────────────────
+function switchProduct(p) {
+  PRODUCT = p;
+  SENT_SYM = PRODUCT_SENT_SYM[p] || SENT_SYM;
+  document.querySelectorAll('[data-prod]').forEach(b => b.classList.toggle('on', b.dataset.prod === p));
+  renderVVTabs();
+  switchView(VIEW);
+}
+
+// ── View switch ───────────────────────────────────────────────────────────────
+function switchView(view) {
+  VIEW = view;
+  document.querySelectorAll('[data-view]').forEach(b => b.classList.toggle('on', b.dataset.view === view));
+  const show = id => { const el = document.getElementById(id); if (el) el.style.display = ''; };
+  const hide = id => { const el = document.getElementById(id); if (el) el.style.display = 'none'; };
+
+  ['vv-main','oi-main','cot-main','sent-main'].forEach(hide);
+  ['vv-sidebar','oi-sidebar','cot-sidebar','sent-sidebar'].forEach(hide);
+  ['vv-tabs','oi-tabs'].forEach(hide);
+
+  if (view === 'vol2vol') {
+    show('vv-main'); show('vv-sidebar'); show('vv-tabs');
+    renderVVHeader(); renderWalls(); renderRanges(); renderDeltas(); renderStats(); drawChart(false);
+  } else if (view === 'oi') {
+    show('oi-main'); show('oi-sidebar'); show('oi-tabs');
+    renderOIHeader(); renderOISidebar(); switchOITab(OI_TAB);
+  } else if (view === 'cot') {
+    show('cot-main'); show('cot-sidebar');
+    renderCOTHeader(); renderCOTSidebar(); drawCOTChart();
+  } else if (view === 'sentiment') {
+    show('sent-main'); show('sent-sidebar');
+    renderSentHeader(); renderSentiment(); renderSentSidebar();
+  }
+}
+
+function _setHdrLbls(fut, vol, chg) {
+  document.getElementById('lFut').textContent  = fut;
+  document.getElementById('lVol').textContent  = vol;
+  document.getElementById('lVChg').textContent = chg;
+}
+
+// ── Vol2Vol: Header ───────────────────────────────────────────────────────────
+function renderVVHeader() {
+  const d = SNAP?.[PRODUCT]?.tabs?.[VV_TAB];
+  document.getElementById('hProd').textContent = PRODUCT_LABELS[PRODUCT] || PRODUCT.toUpperCase();
+  if (!d) {
+    ['hCode','hFut','hVol','hVChg','hTime'].forEach(id => document.getElementById(id).textContent = '—');
+    document.getElementById('hDte').textContent = '— DTE';
+    return;
+  }
+  _setHdrLbls('Future', 'ATM Vol', 'Vol Chg');
+  document.getElementById('hCode').textContent = d.expiration || '—';
+  document.getElementById('hDte').textContent  = (d.dte?.toFixed(1) || '—') + ' DTE';
+  document.getElementById('hFut').textContent  = f(d.future_price, 1);
+  document.getElementById('hVol').textContent  = d.atm_vol != null ? d.atm_vol.toFixed(2) + '%' : '—';
+  const vc = d.stats?.vol_chg;
+  const el = document.getElementById('hVChg');
+  el.textContent = vc != null ? sgn(vc) + vc.toFixed(2) : '—';
+  el.style.color = vc > 0 ? '#16a34a' : vc < 0 ? '#dc2626' : '#64748b';
+  document.getElementById('hTime').textContent = 'Updated ' + new Date(SNAP?.[PRODUCT]?.fetched_at).toLocaleTimeString();
+}
+
+// ── Vol2Vol: Key Levels (Call/Put Wall + ATM IV) ──────────────────────────────
+function renderWalls() {
+  const d = SNAP?.[PRODUCT]?.tabs?.[VV_TAB];
+  const fp = d?.future_price;
+  if (!d?.strikes?.length) return;
+
+  let callWall = null, putWall = null, callMax = 0, putMax = 0;
+  d.strikes.forEach(s => {
+    if (s.call_value > callMax) { callMax = s.call_value; callWall = s.strike; }
+    if (s.put_value  > putMax)  { putMax  = s.put_value;  putWall  = s.strike; }
+  });
+
+  const dist = (s) => fp != null && s != null ? ((s - fp >= 0 ? '+' : '') + (s - fp).toFixed(0)) : '';
+
+  document.getElementById('wallGrid').innerHTML = `
+    <div class="wall-card call">
+      <div class="wall-lbl">Call Wall</div>
+      <div class="wall-val">${callWall != null ? callWall.toFixed(0) : '—'}</div>
+      <div class="wall-sub">${dist(callWall)} pts</div>
+    </div>
+    <div class="wall-card put">
+      <div class="wall-lbl">Put Wall</div>
+      <div class="wall-val">${putWall != null ? putWall.toFixed(0) : '—'}</div>
+      <div class="wall-sub">${dist(putWall)} pts</div>
+    </div>`;
+
+  document.getElementById('atmVolVal').textContent = d.atm_vol != null ? d.atm_vol.toFixed(2) + '%' : '—';
+}
+
+// ── Vol2Vol: Ranges ───────────────────────────────────────────────────────────
+function renderRanges() {
+  const d = SNAP?.[PRODUCT]?.tabs?.[VV_TAB];
+  if (!d) return;
+  const fp = d.future_price;
+  const colors = [
+    ['rgba(220,38,38,.12)', 'rgba(220,38,38,.55)'],
+    ['rgba(251,146,60,.10)', 'rgba(251,146,60,.5)'],
+    ['rgba(234,179,8,.08)', 'rgba(234,179,8,.45)'],
+  ];
+  const el = document.getElementById('sRanges');
+  el.innerHTML = '';
+  (d.ranges || []).forEach((r, i) => {
+    const span = r.upper - r.lower;
+    const pctL = span > 0 ? ((fp - r.lower) / span * 100).toFixed(1) : 50;
+    const halfW = ((r.lower_width + r.upper_width) / 2).toFixed(1);
+    el.insertAdjacentHTML('beforeend', `
+      <div class="range-item">
+        <div class="range-hdr">
+          <span style="color:${colors[i][1]};font-weight:600">${r.level}σ</span>
+          <span>±${halfW} pts</span>
+        </div>
+        <div class="range-bar-bg">
+          <div class="range-fill" style="left:0;right:0;background:${colors[i][0]}">
+            <span style="color:${colors[i][1]}">${f(r.lower, 0)} — ${f(r.upper, 0)}</span>
+          </div>
+          <div style="position:absolute;top:0;bottom:0;left:${pctL}%;width:2px;background:${colors[i][1]};opacity:.6"></div>
+        </div>
+      </div>`);
+  });
+}
+
+// ── Vol2Vol: Deltas ───────────────────────────────────────────────────────────
+function renderDeltas() {
+  const d = SNAP?.[PRODUCT]?.tabs?.[VV_TAB];
+  if (!d) return;
+  const puts  = (d.delta_levels || []).filter(x => x.side === 'put').sort((a, b) => a.delta - b.delta);
+  const calls = (d.delta_levels || []).filter(x => x.side === 'call').sort((a, b) => a.delta - b.delta);
+  const tb = document.getElementById('sDeltas');
+  tb.innerHTML = '';
+  for (let i = 0; i < Math.max(puts.length, calls.length); i++) {
+    const p = puts[i], c = calls[i];
+    tb.insertAdjacentHTML('beforeend', `<tr>
+      <td>${p ? f(p.strike, 0) : ''}</td>
+      <td class="dlbl">${p ? p.delta + 'Δ' : ''}</td>
+      <td>${c ? f(c.strike, 0) : ''}</td>
+    </tr>`);
+  }
+}
+
+// ── Vol2Vol: Stats ────────────────────────────────────────────────────────────
+function renderStats() {
+  const s = SNAP?.[PRODUCT]?.tabs?.[VV_TAB]?.stats || {};
+  const put = s.put_total, call = s.call_total;
+  const pct = put != null && call != null ? put / (put + call) : .5;
+  const pcr = put != null && call != null && call > 0 ? (put / call).toFixed(2) : '—';
+  const fc = s.future_chg;
+  document.getElementById('sStats').innerHTML = `
+    <div class="stt"><div class="stt-lbl">Put total</div><div class="stt-val put">${put != null ? fk(put) : '—'}</div></div>
+    <div class="stt"><div class="stt-lbl">Call total</div><div class="stt-val call">${call != null ? fk(call) : '—'}</div></div>
+    <div class="stt"><div class="stt-lbl">P/C ratio</div><div class="stt-val neu">${pcr}</div></div>
+    <div class="stt"><div class="stt-lbl">Future chg</div>
+      <div class="stt-val neu" style="color:${(fc||0)>=0?'#16a34a':'#dc2626'}">${fc != null ? sgn(fc)+f(fc,1) : '—'}</div>
+    </div>
+    <div class="pc-bar-wrap">
+      <span class="pc-lbl" style="color:#dc2626">P</span>
+      <div class="pc-track"><div class="pc-fill" style="width:${(pct*100).toFixed(1)}%"></div></div>
+      <span class="pc-lbl" style="color:#1d4ed8">C</span>
+    </div>`;
+}
+
+// ── Vol2Vol: Tabs ─────────────────────────────────────────────────────────────
+function renderVVTabs() {
+  const nav = document.getElementById('vv-tabs');
+  nav.innerHTML = '';
+  Object.keys(SNAP?.[PRODUCT]?.tabs || {}).forEach(k => {
+    const btn = document.createElement('button');
+    btn.className = 'tab-btn' + (k === VV_TAB ? ' on' : '');
+    btn.textContent = VV_TAB_LABELS[k] || k;
+    btn.onclick = () => switchVVTab(k);
+    nav.appendChild(btn);
+  });
+}
+
+function switchVVTab(k) {
+  VV_TAB = k;
+  document.querySelectorAll('#vv-tabs .tab-btn').forEach(b =>
+    b.classList.toggle('on', b.textContent === (VV_TAB_LABELS[k] || k)));
+  document.getElementById('chartTitle').textContent = VV_TAB_LABELS[k] || k;
+  renderVVHeader(); renderWalls(); renderRanges(); renderDeltas(); renderStats(); drawChart(true);
+}
+
+// ── Vol2Vol: Chart.js bar chart ───────────────────────────────────────────────
+function drawChart(animate = false) {
+  if (vvChart) { vvChart.destroy(); vvChart = null; }
+  const canvas = document.getElementById('chart');
+
+  const d = SNAP?.[PRODUCT]?.tabs?.[VV_TAB];
+  if (!d) {
+    const ctx = canvas.getContext('2d');
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    ctx.fillStyle = '#94a3b8'; ctx.font = '13px sans-serif';
+    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.fillText(`No data — run: python scrapers/run.py ${PRODUCT}`, canvas.clientWidth / 2, canvas.clientHeight / 2);
+    return;
+  }
+
+  const { future_price: fp, strikes } = d;
+  const vis = (strikes || [])
+    .filter(s => Math.abs(s.strike - fp) <= VV_WIN)
+    .sort((a, b) => a.strike - b.strike);
+
+  if (!vis.length) {
+    const ctx = canvas.getContext('2d');
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    ctx.fillStyle = '#94a3b8'; ctx.font = '13px sans-serif';
+    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.fillText('No data for this tab', canvas.clientWidth / 2, canvas.clientHeight / 2);
+    return;
+  }
+
+  const labels        = vis.map(s => String(s.strike));
+  const putData       = vis.map(s => s.put_value  || 0);
+  const callData      = vis.map(s => s.call_value || 0);
+  const volSettleData = vis.map(s => s.vol_settle != null ? +(s.vol_settle * 100).toFixed(2) : null);
+  const hasVol        = volSettleData.some(v => v != null);
+
+  // nearest strike to future price for annotation
+  const fpIdx = vis.reduce((bi, s, i) =>
+    Math.abs(s.strike - fp) < Math.abs(vis[bi].strike - fp) ? i : bi, 0);
+  const fpLabel = labels[fpIdx];
+
+  const scaleKey = axisFlipped ? 'y' : 'x';
+  const annotation = {
+    type: 'line',
+    scaleID: scaleKey,
+    value: fpLabel,
+    borderColor: '#b45309',
+    borderWidth: 1.5,
+    borderDash: [5, 4],
+    label: {
+      content: fp.toFixed(1),
+      display: true,
+      position: axisFlipped ? 'end' : 'start',
+      color: '#b45309',
+      font: { size: 10, weight: '600' },
+      backgroundColor: 'rgba(255,255,255,0.85)',
+      borderRadius: 3,
+      padding: { x: 4, y: 2 },
+    }
+  };
+
+  const ticksFontSize = 9;
+  const gridColor = '#e2e8f0';
+
+  vvChart = new Chart(canvas, {
+    type: 'bar',
+    data: {
+      labels,
+      datasets: [
+        { label: 'Put',  data: putData,  backgroundColor: 'rgba(220,38,38,.70)',  borderWidth: 0, borderRadius: 2 },
+        { label: 'Call', data: callData, backgroundColor: 'rgba(29,78,216,.70)', borderWidth: 0, borderRadius: 2 },
+        ...(!hasVol ? [] : [{
+          type: 'line',
+          label: 'IV Settle',
+          data: volSettleData,
+          ...(axisFlipped ? { xAxisID: 'xVol' } : { yAxisID: 'yVol' }),
+          borderColor: 'rgba(13,148,136,.85)',
+          backgroundColor: 'transparent',
+          borderWidth: 1.5,
+          borderDash: [4, 3],
+          pointRadius: 0,
+          pointHoverRadius: 3,
+          tension: 0.3,
+          order: 0,
+        }]),
+      ]
+    },
+    options: {
+      indexAxis: axisFlipped ? 'y' : 'x',
+      responsive: true,
+      maintainAspectRatio: false,
+      animation: { duration: animate ? 220 : 0 },
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          mode: 'index',
+          intersect: false,
+          callbacks: { title: items => 'Strike ' + items[0].label }
+        },
+        annotation: { annotations: { fpLine: annotation } }
+      },
+      scales: {
+        x: {
+          stacked: false,
+          grid: { color: gridColor, lineWidth: 0.5 },
+          ticks: {
+            color: '#64748b', font: { size: ticksFontSize, family: 'monospace' },
+            maxRotation: axisFlipped ? 0 : 45,
+            maxTicksLimit: axisFlipped ? 10 : 20,
+            autoSkip: true,
+          }
+        },
+        y: {
+          stacked: false,
+          grid: { color: gridColor, lineWidth: 0.5 },
+          ticks: {
+            color: '#64748b', font: { size: ticksFontSize, family: 'monospace' },
+            maxTicksLimit: axisFlipped ? 20 : 8,
+            callback: axisFlipped
+              ? function(v) { return this.getLabelForValue(v); }
+              : (v => v >= 1000 ? (v/1000).toFixed(0)+'k' : v),
+          }
+        },
+        ...(hasVol && !axisFlipped ? { yVol: {
+          type: 'linear', position: 'right',
+          grid: { drawOnChartArea: false, color: gridColor, lineWidth: 0.5 },
+          ticks: {
+            color: 'rgba(13,148,136,.8)',
+            font: { size: ticksFontSize, family: 'monospace' },
+            maxTicksLimit: 6,
+            callback: v => v.toFixed(1) + '%',
+          },
+        }} : {}),
+        ...(hasVol && axisFlipped ? { xVol: {
+          type: 'linear', position: 'top',
+          grid: { drawOnChartArea: false, color: gridColor, lineWidth: 0.5 },
+          ticks: {
+            color: 'rgba(13,148,136,.8)',
+            font: { size: ticksFontSize, family: 'monospace' },
+            maxTicksLimit: 6,
+            callback: v => v.toFixed(1) + '%',
+          },
+        }} : {}),
+      }
+    }
+  });
+}
+
+function toggleAxis() {
+  axisFlipped = !axisFlipped;
+  const btn = document.getElementById('axisBtn');
+  btn.classList.toggle('flipped', axisFlipped);
+  btn.textContent = axisFlipped ? '↕ Y: Strike' : '↕ X: Strike';
+  drawChart(false);
+}
+
+// ── OI: Header ────────────────────────────────────────────────────────────────
+function renderOIHeader() {
+  document.getElementById('hProd').textContent = PRODUCT_LABELS[PRODUCT] || PRODUCT.toUpperCase();
+  const oi = OI_SNAP?.[PRODUCT]?.tabs?.oi;
+  if (!oi) {
+    ['hCode','hFut','hVol','hVChg','hTime'].forEach(id => document.getElementById(id).textContent = '—');
+    document.getElementById('hDte').textContent = '— DTE';
+    return;
+  }
+  _setHdrLbls('Future', 'ATM Vol', 'Vol Chg');
+  const exp0 = oi.expirations?.[0] || {};
+  document.getElementById('hCode').textContent = exp0.symbol || '—';
+  document.getElementById('hDte').textContent  = (exp0.dte != null ? exp0.dte : '—') + ' DTE';
+  document.getElementById('hFut').textContent  = f(exp0.future_price, 1);
+  document.getElementById('hVol').textContent  = '—';
+  document.getElementById('hVChg').textContent = '—';
+  document.getElementById('hTime').textContent = 'Updated ' + new Date(OI_SNAP?.[PRODUCT]?.fetched_at).toLocaleTimeString();
+}
+
+// ── OI: Heatmap ───────────────────────────────────────────────────────────────
+function renderHeatmap(centerAtm = false) {
+  const data = OI_SNAP?.[PRODUCT]?.tabs?.[OI_TAB];
+  if (!data) {
+    document.getElementById('hmTable').innerHTML = '<div style="padding:20px;color:var(--muted)">No data</div>';
+    return;
+  }
+
+  const { expirations, strikes, atm_strike } = data;
+  const sorted = [...strikes].sort((a, b) => OI_SORT_ASC ? a.strike - b.strike : b.strike - a.strike);
+  const isChange = OI_TAB === 'oi_change';
+
+  let maxVal = 1;
+  sorted.forEach(s => expirations.forEach(exp => {
+    const c = s.cells[exp.symbol] || {};
+    maxVal = Math.max(maxVal, Math.abs(c.call || 0), Math.abs(c.put || 0));
+  }));
+
+  const heatBg = (v) => {
+    if (!v) return '';
+    const a = (Math.min(Math.abs(v) / maxVal, 1) * 0.68 + 0.07).toFixed(2);
+    if (isChange) return `background:rgba(${v > 0 ? '22,163,74' : '220,38,38'},${a})`;
+    return `background:rgba(13,148,136,${a})`;
+  };
+  const fmt = v => v ? v : '';
+
+  let rows = '';
+  sorted.forEach(s => {
+    const isAtm = s.strike === atm_strike;
+    let cells = `<td class="td-strike">${s.strike.toFixed(0)}</td>`;
+    expirations.forEach((exp, i) => {
+      const c = s.cells[exp.symbol] || {};
+      const sep = i < expirations.length - 1 ? ' td-sep' : '';
+      cells += `<td style="${heatBg(c.call)}">${fmt(c.call)}</td>`;
+      cells += `<td class="${sep}" style="${heatBg(c.put)}">${fmt(c.put)}</td>`;
+    });
+    rows += `<tr class="${isAtm ? 'atm' : ''}">${cells}</tr>`;
+  });
+
+  const thead1 = `<tr>
+    <th class="th-strike" rowspan="2" onclick="toggleOISort()" style="cursor:pointer;user-select:none">
+      STRIKE ${OI_SORT_ASC ? '↑' : '↓'}
+    </th>
+    ${expirations.map((exp, i) => `
+      <th colspan="2" class="exp-name${i < expirations.length-1 ? ' td-sep':''}" style="padding-top:4px">
+        ${exp.symbol}<br><span class="exp-dte">${exp.dte != null ? exp.dte+'d' : ''}</span>
+      </th>`).join('')}
+  </tr>`;
+  const thead2 = `<tr>
+    ${expirations.map((exp, i) => `
+      <th class="sub-c">C</th>
+      <th class="sub-p${i < expirations.length-1 ? ' td-sep':''}">P</th>`).join('')}
+  </tr>`;
+
+  document.getElementById('hmTable').innerHTML =
+    `<table class="hm"><thead>${thead1}${thead2}</thead><tbody>${rows}</tbody></table>`;
+
+  if (centerAtm) {
+    requestAnimationFrame(() => {
+      const atm = document.querySelector('#hmTable tr.atm');
+      const wrap = document.querySelector('.hm-scroll');
+      if (atm && wrap) {
+        wrap.scrollTop = atm.offsetTop - wrap.clientHeight / 2 + atm.offsetHeight / 2;
+      }
+    });
+  }
+}
+
+// ── OI: Sidebar ───────────────────────────────────────────────────────────────
+function renderOISidebar() {
+  const oi  = OI_SNAP?.[PRODUCT]?.tabs?.oi;
+  if (!oi) return;
+  const { expirations, strikes, atm_strike } = oi;
+  const exp0 = expirations[0];
+
+  // ── Summary card ─────────────────────────────────────────────────────────
+  const vol  = OI_SNAP?.[PRODUCT]?.tabs?.volume;
+  const chg  = OI_SNAP?.[PRODUCT]?.tabs?.oi_change;
+
+  let totCallOI = 0, totPutOI = 0, totCallVol = 0, totPutVol = 0;
+  let callUp = 0, callDn = 0, putUp = 0, putDn = 0;
+  let netCallChg = 0, netPutChg = 0;
+
+  strikes.forEach(s => {
+    expirations.forEach(exp => {
+      const o = s.cells[exp.symbol] || {};
+      totCallOI  += o.call || 0;
+      totPutOI   += o.put  || 0;
+    });
+  });
+  if (vol) vol.strikes.forEach(s => {
+    vol.expirations.forEach(exp => {
+      const v = s.cells[exp.symbol] || {};
+      totCallVol += v.call || 0;
+      totPutVol  += v.put  || 0;
+    });
+  });
+  if (chg) chg.strikes.forEach(s => {
+    let sc = 0, sp = 0;
+    chg.expirations.forEach(exp => {
+      const c = s.cells[exp.symbol] || {};
+      sc += c.call || 0;
+      sp += c.put  || 0;
+      netCallChg += c.call || 0;
+      netPutChg  += c.put  || 0;
+    });
+    if (sc > 0) callUp++; else if (sc < 0) callDn++;
+    if (sp > 0) putUp++;  else if (sp < 0) putDn++;
+  });
+
+  const fmtN = n => Math.abs(n) >= 1000 ? (n/1000).toFixed(1)+'k' : String(n);
+  const sgC  = n => n > 0 ? '+' : '';
+  const row  = (lbl, cv, pv, cStyle='', pStyle='') =>
+    `<div style="display:contents">
+      <span style="font-size:10px;color:var(--muted);padding:3px 0">${lbl}</span>
+      <span style="font-family:monospace;font-size:12px;text-align:right;${cStyle}">${cv}</span>
+      <span style="font-family:monospace;font-size:12px;text-align:right;${pStyle}">${pv}</span>
+    </div>`;
+
+  document.getElementById('oi-summary').innerHTML = `
+    <div style="display:grid;grid-template-columns:auto 1fr 1fr;align-items:center;gap:0 8px">
+      <span></span>
+      <span style="font-size:11px;font-weight:600;color:#2563eb;text-align:right;padding-bottom:4px;border-bottom:1px solid var(--border)">Calls</span>
+      <span style="font-size:11px;font-weight:600;color:#dc2626;text-align:right;padding-bottom:4px;border-bottom:1px solid var(--border)">Puts</span>
+      ${row('Volume',   fmtN(totCallVol), fmtN(totPutVol))}
+      ${row('OI Total', fmtN(totCallOI),  fmtN(totPutOI))}
+      ${row('Strikes ↑', callUp, putUp, 'color:#16a34a', 'color:#16a34a')}
+      ${row('Strikes ↓', callDn, putDn, 'color:#dc2626', 'color:#dc2626')}
+      ${row('Net CHG', sgC(netCallChg)+fmtN(netCallChg), sgC(netPutChg)+fmtN(netPutChg),
+            netCallChg>=0?'color:#16a34a':'color:#dc2626',
+            netPutChg>=0?'color:#16a34a':'color:#dc2626')}
+    </div>`;
+
+  const maxPain = calcMaxPain(strikes, exp0?.symbol);
+  const fp = exp0?.future_price || 0;
+  document.getElementById('mpExp').textContent  = exp0?.symbol || '';
+  document.getElementById('mpVal').textContent  = maxPain != null ? maxPain.toFixed(0) : '—';
+  document.getElementById('mpDist').textContent = maxPain != null
+    ? (maxPain > fp ? '+' : '') + (maxPain - fp).toFixed(1) + ' from future (' + fp.toFixed(1) + ')'
+    : '';
+
+  const pc = expirations.map(exp => {
+    let tc = 0, tp = 0;
+    strikes.forEach(s => { const c = s.cells[exp.symbol] || {}; tc += c.call||0; tp += c.put||0; });
+    return { sym: exp.symbol, tc, tp, pcr: tc > 0 ? tp/tc : null };
+  });
+  const maxPCR = Math.max(...pc.map(x => x.pcr || 0), 0.01);
+  document.getElementById('sPCExpiry').innerHTML = pc.map(x => `
+    <div class="exp-row">
+      <span class="exp-sym">${x.sym}</span>
+      <div class="exp-bar"><div class="exp-bar-fill" style="width:${Math.min((x.pcr||0)/maxPCR*100,100).toFixed(0)}%"></div></div>
+      <span class="exp-pcr">${x.pcr != null ? x.pcr.toFixed(2) : '—'}</span>
+    </div>`).join('');
+
+  document.getElementById('topExp').textContent = exp0?.symbol || '';
+  const sym = exp0?.symbol;
+  const topStrikes = [...strikes]
+    .map(s => { const c = s.cells[sym]||{}; return { strike: s.strike, cv: c.call||0, pv: c.put||0, tot: (c.call||0)+(c.put||0) }; })
+    .filter(s => s.tot > 0).sort((a, b) => b.tot - a.tot).slice(0, 7);
+
+  const maxTot = topStrikes[0]?.tot || 1;
+  document.getElementById('sTopOI').innerHTML = topStrikes.map(s => `
+    <div class="top-row">
+      <span class="top-strike">${s.strike.toFixed(0)}</span>
+      <span class="top-cv">${fk(s.cv)}</span>
+      <span style="color:var(--muted)">/</span>
+      <span class="top-pv">${fk(s.pv)}</span>
+      <div style="flex:1;margin-left:6px;height:3px;background:var(--border);border-radius:2px;overflow:hidden">
+        <div style="height:100%;width:${(s.tot/maxTot*100).toFixed(0)}%;background:var(--teal);border-radius:2px"></div>
+      </div>
+    </div>`).join('');
+}
+
+function calcMaxPain(strikes, expSym) {
+  if (!expSym || !strikes.length) return null;
+  let best = null, bestPain = Infinity;
+  strikes.forEach(K => {
+    let pain = 0;
+    strikes.forEach(s => {
+      const c = s.cells[expSym] || {};
+      if (s.strike < K.strike) pain += (c.call||0) * (K.strike - s.strike);
+      if (s.strike > K.strike) pain += (c.put||0)  * (s.strike - K.strike);
+    });
+    if (pain < bestPain) { bestPain = pain; best = K.strike; }
+  });
+  return best;
+}
+
+function toggleOISort() {
+  OI_SORT_ASC = !OI_SORT_ASC;
+  renderHeatmap();
+}
+
+function switchOITab(k) {
+  OI_TAB = k;
+  document.querySelectorAll('#oi-tabs .tab-btn').forEach((b, i) =>
+    b.classList.toggle('on', OI_TAB_KEYS[i] === k));
+  const isChart = k === 'chart';
+  document.getElementById('oi-chart-view').style.display = isChart ? 'flex' : 'none';
+  document.getElementById('oi-table-view').style.display = isChart ? 'none' : '';
+  if (isChart) renderOIChart();
+  else renderHeatmap(true);
+}
+
+function switchOIChartTab(k) {
+  OI_CHART_TAB = k;
+  ['oi', 'volume', 'net_vol', 'sum_vol'].forEach(t =>
+    document.getElementById('oict-' + t)?.classList.toggle('on', t === k));
+  renderOIChart();
+}
+
+// ── OI: Chart ────────────────────────────────────────────────────────────────
+function renderOIChart() {
+  const isNet    = OI_CHART_TAB === 'net_vol';
+  const isSumVol = OI_CHART_TAB === 'sum_vol';
+  const srcKey   = OI_CHART_TAB === 'oi' ? 'oi' : 'volume';
+  const src = OI_SNAP?.[PRODUCT]?.tabs?.[srcKey];
+  const canvas = document.getElementById('oi-chart');
+
+  if (!src) {
+    if (_oiChart) { _oiChart.destroy(); _oiChart = null; }
+    canvas.parentElement.innerHTML = '<div style="padding:20px;color:var(--muted)">No data</div>';
+    return;
+  }
+
+  const { expirations, strikes, atm_strike } = src;
+  const allSorted = [...strikes].sort((a, b) => a.strike - b.strike);
+  const exp0 = expirations[0]; // front-month only
+
+  // Keep front-month strikes within ±10% of ATM
+  const ref = atm_strike || allSorted[Math.floor(allSorted.length / 2)]?.strike || 0;
+  const sorted = allSorted.filter(s => {
+    if (ref && (s.strike < ref * 0.95 || s.strike > ref * 1.05)) return false;
+    const c = s.cells[exp0?.symbol] || {};
+    return (c.call || 0) + (c.put || 0) > 0;
+  });
+
+  const labels = sorted.map(s => s.strike.toFixed(0));
+  const callVals = sorted.map(s => s.cells[exp0?.symbol]?.call || 0);
+  const putVals  = sorted.map(s => s.cells[exp0?.symbol]?.put  || 0);
+  const netVals  = callVals.map((c, i) => c - putVals[i]);
+  const atmIdx = sorted.findIndex(s => s.strike === atm_strike);
+
+  const grid = 'rgba(128,128,128,0.12)', txt = '#64748b';
+  const callC = sorted.map((_, i) => i === atmIdx ? 'rgba(37,99,235,0.95)' : 'rgba(37,99,235,0.6)');
+  const putC  = sorted.map((_, i) => i === atmIdx ? 'rgba(220,38,38,0.95)'  : 'rgba(220,38,38,0.55)');
+
+  const sumVals  = callVals.map((c, i) => c + putVals[i]);
+  const datasets = isNet
+    ? [{ label: 'Net (Call−Put)', data: netVals,
+         backgroundColor: netVals.map(v => v >= 0 ? 'rgba(22,163,74,0.7)' : 'rgba(220,38,38,0.7)'),
+         borderWidth: 0 }]
+    : isSumVol
+    ? [{ label: 'Total Volume', data: sumVals,
+         backgroundColor: sumVals.map((_, i) => i === atmIdx ? 'rgba(124,58,237,0.95)' : 'rgba(124,58,237,0.6)'),
+         borderWidth: 0 }]
+    : [{ label: 'Call', data: callVals, backgroundColor: callC, borderWidth: 0 },
+       { label: 'Put',  data: putVals,  backgroundColor: putC,  borderWidth: 0 }];
+
+  const annotations = {};
+  if (atmIdx >= 0) {
+    annotations.atm = {
+      type: 'line', scaleID: 'x', value: atmIdx,
+      borderColor: '#b45309', borderWidth: 1.5, borderDash: [4, 3],
+      label: { content: 'ATM', display: true, position: 'start',
+               backgroundColor: '#b45309', color: '#fff', font: { size: 10 }, padding: 3 }
+    };
+  }
+
+  const cfg = {
+    type: 'bar',
+    data: { labels, datasets },
+    options: {
+      responsive: true, maintainAspectRatio: false, animation: false,
+      plugins: {
+        legend: { display: false },
+        tooltip: { mode: 'index', intersect: false },
+        annotation: { annotations }
+      },
+      scales: {
+        x: { grid: { color: grid },
+             ticks: { color: txt, font: { size: 10, family: 'monospace' },
+                      maxRotation: 45, autoSkip: true, maxTicksLimit: 25 } },
+        y: { grid: { color: grid },
+             ticks: { color: txt, font: { size: 10 },
+                      callback: v => v >= 1000 ? (v/1000).toFixed(0)+'k' : v } }
+      }
+    }
+  };
+
+  if (_oiChart) { _oiChart.destroy(); }
+  _oiChart = new Chart(canvas, cfg);
+}
+
+// ── COT: Header ───────────────────────────────────────────────────────────────
+function renderCOTHeader() {
+  if (!COT?.records?.length) return;
+  const latest = COT.records[COT.records.length - 1];
+  const prev   = COT.records[COT.records.length - 2];
+  document.getElementById('hProd').textContent = PRODUCT_LABELS[PRODUCT] || PRODUCT.toUpperCase();
+  document.getElementById('hCode').textContent = 'COT';
+  document.getElementById('hDte').textContent  = latest.date;
+  _setHdrLbls('MM Net', '% of OI', 'WoW Chg');
+  document.getElementById('hFut').textContent = (latest.mm_net >= 0 ? '+' : '') + f(latest.mm_net);
+  document.getElementById('hVol').textContent = latest.mm_pct.toFixed(1) + '%';
+  const wowEl = document.getElementById('hVChg');
+  if (prev) {
+    const chg = latest.mm_net - prev.mm_net;
+    wowEl.textContent = (chg >= 0 ? '+' : '') + f(chg);
+    wowEl.style.color = chg > 0 ? '#16a34a' : chg < 0 ? '#dc2626' : '#64748b';
+  }
+  document.getElementById('hTime').textContent = 'CFTC · ' + new Date(COT.fetched_at).toLocaleDateString();
+}
+
+// ── COT: Sidebar ──────────────────────────────────────────────────────────────
+function renderCOTSidebar() {
+  if (!COT?.records?.length) return;
+  const recs   = COT.records;
+  const latest = recs[recs.length - 1];
+  const prev   = recs[recs.length - 2];
+  const cls    = v => v > 0 ? 'pos' : v < 0 ? 'neg' : 'neu';
+  const fmtK   = n => (n >= 0 ? '+' : '') + (Math.abs(n) >= 1000 ? (n / 1000).toFixed(1) + 'K' : n);
+
+  // ── Signal badge ──────────────────────────────────────
+  const nets = recs.map(r => r.mm_net);
+  const lo = Math.min(...nets), hi = Math.max(...nets);
+  const pct = hi > lo ? (latest.mm_net - lo) / (hi - lo) * 100 : 50;
+  const wow = prev ? latest.mm_net - prev.mm_net : 0;
+
+  let label, text, bg, border, color;
+  if (pct >= 60 && wow > 0) {
+    label = 'Strong bullish';
+    text  = `MM เพิ่ม Long ${fmtK(wow)} · อยู่ใน ${pct.toFixed(0)}%ile สูง — positioning แข็งแกร่ง`;
+    bg = 'rgba(22,163,74,.08)'; border = 'rgba(22,163,74,.3)'; color = 'var(--green)';
+  } else if (wow > 0 && pct >= 30) {
+    label = 'Building long';
+    text  = `MM เพิ่ม Long ${fmtK(wow)} · ยังมีช่องว่างก่อนถึง high ของ range`;
+    bg = 'rgba(13,148,136,.08)'; border = 'rgba(13,148,136,.3)'; color = 'var(--teal)';
+  } else if (wow > 0) {
+    label = 'Recovering';
+    text  = `MM เริ่มซื้อเพิ่ม ${fmtK(wow)} · แต่ position ยังต่ำ (${pct.toFixed(0)}%ile)`;
+    bg = 'rgba(13,148,136,.08)'; border = 'rgba(13,148,136,.3)'; color = 'var(--teal)';
+  } else if (pct >= 60) {
+    label = 'Easing from highs';
+    text  = `MM ลด Long ${fmtK(wow)} · position ยังสูง (${pct.toFixed(0)}%ile) — เฝ้าระวัง unwind`;
+    bg = 'rgba(180,83,9,.07)'; border = 'rgba(180,83,9,.25)'; color = 'var(--gold)';
+  } else if (pct >= 30) {
+    label = 'Trimming';
+    text  = `MM ลด Long ${fmtK(wow)} · position กลางๆ (${pct.toFixed(0)}%ile)`;
+    bg = 'rgba(180,83,9,.07)'; border = 'rgba(180,83,9,.25)'; color = 'var(--gold)';
+  } else {
+    label = 'Cautious';
+    text  = `MM ลด Long ${fmtK(wow)} · position ต่ำ (${pct.toFixed(0)}%ile) — ยังไม่มีแรงหนุน`;
+    bg = 'rgba(180,83,9,.07)'; border = 'rgba(180,83,9,.25)'; color = 'var(--gold)';
+  }
+
+  const sigDate = new Date(latest.date + 'T00:00:00').toLocaleDateString('en-GB', { day: '2-digit', month: 'short' });
+  const sigEl = document.getElementById('cot-signal');
+  sigEl.style.cssText = `background:${bg};border:1px solid ${border};border-radius:8px;padding:10px 12px`;
+  sigEl.innerHTML = `
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:5px">
+      <span style="font-size:11px;font-weight:600;letter-spacing:.2px;color:${color}">${label}</span>
+      <span style="font-size:10px;color:var(--muted);font-family:monospace">${sigDate}</span>
+    </div>
+    <div style="font-size:11px;line-height:1.45;color:${color};opacity:.9">${text}</div>`;
+
+  // ── Mini WoW bars ────────────────────────────────────
+  const src = recs.length >= 11 ? recs.slice(-11) : recs;
+  const mmW = [], pmW = [], swW = [];
+  for (let i = 1; i < src.length; i++) {
+    mmW.push(src[i].mm_net - src[i-1].mm_net);
+    pmW.push(src[i].pm_net - src[i-1].pm_net);
+    swW.push(src[i].sw_net - src[i-1].sw_net);
+  }
+
+  function miniBar(wows, lbl) {
+    const maxAbs = Math.max(...wows.map(Math.abs), 1);
+    const bars = wows.map((w, i) => {
+      const a = Math.max(0.12, Math.abs(w) / maxAbs);
+      const col = w >= 0 ? `rgba(22,163,74,${a})` : `rgba(220,38,38,${a})`;
+      const outline = i === wows.length - 1
+        ? `outline:1.5px solid ${w >= 0 ? '#16a34a' : '#dc2626'};outline-offset:1px` : '';
+      return `<div style="flex:1;height:12px;background:${col};border-radius:2px;${outline}"></div>`;
+    }).join('');
+    return `<div class="cot-bars">
+      <div class="cot-bars-lbl">${lbl} · 10w WoW</div>
+      <div class="cot-bars-row">${bars}</div>
+      <div class="cot-bars-foot"><span>◀ 10w ago</span><span>now</span></div>
+    </div>`;
+  }
+
+  // ── Position cards ───────────────────────────────────
+  function posCard(elId, longV, shortV, net, prevNet, wows, ctx) {
+    const chg = prevNet != null ? net - prevNet : null;
+    document.getElementById(elId).innerHTML = `
+      <div class="cot-ctx">${ctx}</div>
+      <div class="cot-row"><span class="cot-lbl">Long</span><span class="cot-val">${f(longV)}</span></div>
+      <div class="cot-row"><span class="cot-lbl">Short</span><span class="cot-val">${f(shortV)}</span></div>
+      <div class="cot-row" style="border-top:1px solid var(--border);margin-top:4px;padding-top:5px">
+        <span class="cot-lbl">Net</span>
+        <span class="cot-val ${cls(net)}" style="font-size:15px;font-weight:700">${net>=0?'+':''}${f(net)}</span>
+      </div>
+      ${chg != null ? `<div class="cot-row"><span class="cot-lbl">WoW</span><span class="cot-val ${cls(chg)}">${chg>=0?'+':''}${f(chg)}</span></div>` : ''}
+      ${miniBar(wows, 'Net')}`;
+  }
+
+  posCard('sCotMM', latest.mm_long, latest.mm_short, latest.mm_net, prev?.mm_net, mmW,
+    'กองทุน/ขาใหญ่ — long สุทธิ = bullish');
+  posCard('sCotPM', latest.pm_long, latest.pm_short, latest.pm_net, prev?.pm_net, pmW,
+    'hedger ตัวจริง — short คือปกติ');
+  posCard('sCotSW', latest.sw_long, latest.sw_short, latest.sw_net, prev?.sw_net, swW,
+    'intermediary — short คือ hedge exposure');
+
+  // ── Gauge + 10w history bars ────────────────────────
+  const g10 = recs.slice(-10).map(r => r.mm_net);
+  const gMin = Math.min(...g10), gMax = Math.max(...g10);
+  const histBars = g10.map((n, i) => {
+    const ratio = gMax > gMin ? (n - gMin) / (gMax - gMin) : 0.5;
+    const h = Math.round(4 + ratio * 20);
+    const a = 0.25 + 0.75 * ratio;
+    const outline = i === g10.length - 1 ? 'outline:1.5px solid var(--gold);outline-offset:1px' : '';
+    return `<div style="flex:1;height:${h}px;background:rgba(180,83,9,${a.toFixed(2)});border-radius:2px 2px 0 0;${outline}"></div>`;
+  }).join('');
+
+  document.getElementById('sCotGauge').innerHTML = `
+    <div style="font-size:21px;font-weight:700;font-family:monospace;color:var(--gold);margin-bottom:4px">
+      ${pct.toFixed(0)}<span style="font-size:12px;color:var(--muted)">%ile</span>
+    </div>
+    <div style="font-size:11px;color:var(--muted);margin-bottom:8px">of ${recs.length}-week range</div>
+    <div class="gauge-wrap">
+      <div class="gauge-lbl-row"><span>${f(lo)}</span><span>${f(hi)}</span></div>
+      <div class="gauge-track">
+        <div class="gauge-fill" style="width:100%"></div>
+        <div class="gauge-thumb" style="left:${pct.toFixed(1)}%"></div>
+      </div>
+    </div>
+    <div class="cot-bars" style="margin-top:10px">
+      <div class="cot-bars-lbl">MM net · 10w history</div>
+      <div class="cot-hist-row">${histBars}</div>
+      <div class="cot-bars-foot"><span>◀ 10w ago</span><span>now</span></div>
+    </div>
+    <div style="text-align:center;font-size:10px;color:var(--muted);margin-top:6px">
+      Current: ${latest.mm_net>=0?'+':''}${f(latest.mm_net)}
+    </div>`;
+}
+
+// ── COT: Chart.js line chart ──────────────────────────────────────────────────
+function drawCOTChart() {
+  if (cotChart) { cotChart.destroy(); cotChart = null; }
+  const canvas = document.getElementById('cot-chart');
+
+  if (!COT?.records?.length) {
+    const ctx = canvas.getContext('2d');
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    ctx.fillStyle = '#94a3b8'; ctx.font = '13px sans-serif';
+    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.fillText('No COT data — run: python scrapers/cot.py', canvas.clientWidth / 2, canvas.clientHeight / 2);
+    return;
+  }
+
+  const recs   = COT.records;
+  const labels = recs.map(r => r.date);
+  const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+
+  cotChart = new Chart(canvas, {
+    type: 'line',
+    data: {
+      labels,
+      datasets: [
+        {
+          label: 'MM Net',
+          data: recs.map(r => r.mm_net),
+          borderColor: '#b45309',
+          backgroundColor: 'rgba(180,83,9,.07)',
+          borderWidth: 2,
+          fill: true,
+          pointRadius: 0,
+          pointHoverRadius: 4,
+          tension: 0.3,
+        },
+        {
+          label: 'Prod/Merchant Net',
+          data: recs.map(r => r.pm_net),
+          borderColor: 'rgba(220,38,38,.6)',
+          borderWidth: 1.5,
+          fill: false,
+          pointRadius: 0,
+          pointHoverRadius: 3,
+          tension: 0.3,
+        },
+        {
+          label: 'Swap Dealer Net',
+          data: recs.map(r => r.sw_net),
+          borderColor: 'rgba(29,78,216,.5)',
+          borderWidth: 1.5,
+          fill: false,
+          pointRadius: 0,
+          pointHoverRadius: 3,
+          tension: 0.3,
+        }
+      ]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      animation: { duration: 250 },
+      plugins: {
+        legend: { display: false },
+        tooltip: { mode: 'index', intersect: false },
+        annotation: {
+          annotations: {
+            zeroLine: {
+              type: 'line', scaleID: 'y', value: 0,
+              borderColor: 'rgba(0,0,0,.15)', borderWidth: 1,
+            }
+          }
+        }
+      },
+      scales: {
+        x: {
+          grid: { color: '#e2e8f0', lineWidth: 0.5 },
+          ticks: {
+            color: '#64748b', font: { size: 9, family: 'monospace' },
+            maxTicksLimit: 16,
+            callback(val, i) {
+              const d = labels[i]; if (!d) return '';
+              const [y, m] = d.split('-');
+              if (!m) return '';
+              const lbl = months[+m - 1];
+              return m === '01' ? lbl + " '" + y.slice(2) : lbl;
+            }
+          }
+        },
+        y: {
+          grid: { color: '#e2e8f0', lineWidth: 0.5 },
+          ticks: {
+            color: '#64748b', font: { size: 10 },
+            callback: v => Math.abs(v) >= 1000 ? (v/1000).toFixed(0)+'k' : v
+          }
+        }
+      }
+    }
+  });
+}
+
+// ── Sentiment: Header ─────────────────────────────────────────────────────────
+function renderSentHeader() {
+  _setHdrLbls('Retail Bias', 'Avg Buy%', 'Brokers');
+  const d = SENT?.symbols?.[SENT_SYM];
+  document.getElementById('hProd').textContent = PRODUCT_LABELS[PRODUCT] || PRODUCT.toUpperCase();
+  document.getElementById('hCode').textContent = SENT_SYM;
+  document.getElementById('hDte').textContent  = '';
+  document.getElementById('hFut').textContent  = d ? (d.average.buy >= 50 ? 'BULLISH' : 'BEARISH') : '—';
+  document.getElementById('hFut').style.color  = d ? (d.average.buy >= 50 ? '#16a34a' : '#dc2626') : '#64748b';
+  document.getElementById('hVol').textContent  = d ? d.average.buy.toFixed(1) + '%' : '—';
+  document.getElementById('hVChg').textContent = d ? d.brokers.length : '—';
+  document.getElementById('hTime').textContent = SENT?.fetched_at
+    ? 'Updated ' + new Date(SENT.fetched_at).toLocaleTimeString() : '—';
+}
+
+// ── Sentiment: Broker rows ────────────────────────────────────────────────────
+function renderSentiment() {
+  const d = SENT?.symbols?.[SENT_SYM];
+  if (!d) { document.getElementById('sentRows').innerHTML = '<div style="padding:20px;color:var(--muted)">No data</div>'; return; }
+
+  const rows = [...d.brokers];
+  const avgRow = { code: 'avg', name: 'Average', buy: d.average.buy, sell: d.average.sell, isAvg: true };
+  rows.push(avgRow);
+
+  document.getElementById('sentRows').innerHTML = rows.map(b => `
+    <div class="sent-row${b.isAvg ? ' avg' : ''}">
+      <span class="broker">${b.name}</span>
+      <div class="sent-bar-wrap">
+        <div class="sent-buy-bar" style="width:${b.buy}%">${b.buy >= 18 ? b.buy.toFixed(1) + '%' : ''}</div>
+        <div class="sent-sell-bar">${b.sell >= 18 ? b.sell.toFixed(1) + '%' : ''}</div>
+        <div class="sent-mid"></div>
+      </div>
+    </div>`).join('');
+}
+
+// ── Sentiment: Sidebar ────────────────────────────────────────────────────────
+function renderSentSidebar() {
+  const d = SENT?.symbols?.[SENT_SYM];
+  document.getElementById('sentSym').textContent = SENT_SYM;
+
+  if (!d) return;
+  const buy = d.average.buy;
+  const isBull = buy >= 50;
+  const biasColor = isBull ? '#16a34a' : '#dc2626';
+
+  document.getElementById('sentBiasVal').textContent = buy.toFixed(1) + '%';
+  document.getElementById('sentBiasVal').style.color = biasColor;
+  document.getElementById('sentBiasBar').style.cssText =
+    `width:${buy}%;background:${isBull ? 'rgba(29,78,216,.7)' : 'rgba(220,38,38,.7)'}`;
+
+  const signalBox = document.getElementById('sentSignal');
+  const pct = (buy - 50) / 50;
+  if (Math.abs(pct) < 0.12) {
+    signalBox.style.cssText = 'background:rgba(234,179,8,.1);border:1px solid rgba(234,179,8,.25);color:#92400e';
+    signalBox.textContent = 'Neutral — retail split near 50/50';
+  } else if (isBull) {
+    signalBox.style.cssText = 'background:rgba(220,38,38,.07);border:1px solid rgba(220,38,38,.2);color:#991b1b';
+    signalBox.textContent = 'Contrarian BEARISH — retail heavily long';
+  } else {
+    signalBox.style.cssText = 'background:rgba(29,78,216,.07);border:1px solid rgba(29,78,216,.2);color:#1e3a8a';
+    signalBox.textContent = 'Contrarian BULLISH — retail heavily short';
+  }
+
+  if (SENT?.formed_at) {
+    const formed = new Date(SENT.formed_at * 1000);
+    const minAgo = Math.round((Date.now() - formed) / 60000);
+    document.getElementById('sentUpdated').innerHTML =
+      formed.toLocaleString() +
+      `<span style="display:block;font-size:10px;color:var(--muted);margin-top:2px">${minAgo} min ago</span>`;
+  } else {
+    document.getElementById('sentUpdated').textContent = '—';
+  }
+}
+
+
+// ── Init ──────────────────────────────────────────────────────────────────────
+renderVVTabs();
+switchView('vol2vol');
+</script>
+</body>
+</html>

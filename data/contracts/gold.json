@@ -1,0 +1,13 @@
+{
+  "product": "gold",
+  "contracts": [
+    {
+      "code": "G3MM6",
+      "expiration_id": 66821,
+      "dte": 0.5728,
+      "first_seen": "2026-06-13T16:24:29.277383",
+      "dte_updated": "2026-06-15T10:45:09.069840"
+    }
+  ],
+  "last_updated": "2026-06-15T10:45:09.069840"
+}

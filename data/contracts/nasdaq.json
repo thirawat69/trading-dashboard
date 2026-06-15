@@ -1,0 +1,20 @@
+{
+  "product": "nasdaq",
+  "contracts": [
+    {
+      "code": "Q3AM6",
+      "expiration_id": 67283,
+      "dte": 0.6765,
+      "first_seen": "2026-06-14T14:32:24.176353",
+      "dte_updated": "2026-06-15T10:45:54.257819"
+    },
+    {
+      "code": "Q3BM6",
+      "expiration_id": 67334,
+      "dte": 2.4862,
+      "first_seen": "2026-06-14T15:19:54.213065",
+      "dte_updated": "2026-06-14T15:19:54.213065"
+    }
+  ],
+  "last_updated": "2026-06-15T10:45:54.257819"
+}
