@@ -343,6 +343,14 @@ tr.atm td { border-top-color: rgba(180,83,9,.2) !important; border-bottom-color:
     <div class="chart-box">
       <canvas id="chart"></canvas>
     </div>
+    <div id="vv-timeline" style="padding:5px 14px 8px;border-top:0.5px solid var(--border)">
+      <div style="display:flex;align-items:center;gap:8px">
+        <button id="snapPrev" onclick="stepSnapshot(-1)" style="padding:1px 7px;font-size:14px;border:0.5px solid var(--border);background:transparent;border-radius:4px;cursor:pointer;color:var(--text)">‹</button>
+        <div style="flex:1;position:relative;height:26px" id="snapTrack"></div>
+        <button id="snapNext" onclick="stepSnapshot(1)" style="padding:1px 7px;font-size:14px;border:0.5px solid var(--border);background:transparent;border-radius:4px;cursor:pointer;color:var(--text)">›</button>
+        <span id="snapLabel" style="font-size:11px;color:var(--muted);min-width:96px;text-align:right;white-space:nowrap"></span>
+      </div>
+    </div>
   </div>
 
   <!-- ── Sentiment main ── -->
@@ -527,6 +535,25 @@ const VV_TAB_LABELS = {
 };
 const OI_TAB_KEYS = ['chart', 'oi', 'oi_change', 'volume'];
 
+// ── Snapshot state ────────────────────────────────────────────────────────────
+let SNAP_IDX = -1; // -1 = latest; 0..n-1 = pinned historical snapshot
+
+function vvSnap() {
+  const p = SNAP?.[PRODUCT];
+  if (!p) return null;
+  if (p.snapshots?.length) {
+    const i = SNAP_IDX < 0 ? p.snapshots.length - 1 : Math.min(SNAP_IDX, p.snapshots.length - 1);
+    return p.snapshots[i];
+  }
+  return p.tabs ? p : null; // legacy single-snapshot format
+}
+function vvTabData(tab)  { return vvSnap()?.tabs?.[tab]; }
+function vvAllTabs()     { return vvSnap()?.tabs || {}; }
+function vvFetchedAt()   { return vvSnap()?.fetched_at; }
+function intradayCenter() {
+  return SNAP?.[PRODUCT]?.snapshots?.[0]?.tabs?.intraday?.future_price;
+}
+
 const f   = (n, d = 0) => n == null ? '—' : n.toLocaleString('en-US', { minimumFractionDigits: d, maximumFractionDigits: d });
 const fk  = n => n == null ? '—' : n >= 1000 ? (n / 1000).toFixed(1) + 'k' : String(Math.round(n));
 const sgn = n => n > 0 ? '+' : '';
@@ -535,7 +562,8 @@ Chart.defaults.font.family = "-apple-system, BlinkMacSystemFont, 'SF Pro Text', 
 
 // ── Product switch ────────────────────────────────────────────────────────────
 function switchProduct(p) {
-  PRODUCT = p;
+  PRODUCT  = p;
+  SNAP_IDX = -1;
   SENT_SYM = PRODUCT_SENT_SYM[p] || SENT_SYM;
   document.querySelectorAll('[data-prod]').forEach(b => b.classList.toggle('on', b.dataset.prod === p));
   renderVVTabs();
@@ -555,7 +583,7 @@ function switchView(view) {
 
   if (view === 'vol2vol') {
     show('vv-main'); show('vv-sidebar'); show('vv-tabs');
-    renderVVHeader(); renderWalls(); renderRanges(); renderDeltas(); renderStats(); drawChart(false);
+    renderVVHeader(); renderWalls(); renderRanges(); renderDeltas(); renderStats(); drawChart(false); renderTimeline();
   } else if (view === 'oi') {
     show('oi-main'); show('oi-sidebar'); show('oi-tabs');
     renderOIHeader(); renderOISidebar(); switchOITab(OI_TAB);
@@ -576,7 +604,7 @@ function _setHdrLbls(fut, vol, chg) {
 
 // ── Vol2Vol: Header ───────────────────────────────────────────────────────────
 function renderVVHeader() {
-  const d = SNAP?.[PRODUCT]?.tabs?.[VV_TAB];
+  const d = vvTabData(VV_TAB);
   document.getElementById('hProd').textContent = PRODUCT_LABELS[PRODUCT] || PRODUCT.toUpperCase();
   if (!d) {
     ['hCode','hFut','hVol','hVChg','hTime'].forEach(id => document.getElementById(id).textContent = '—');
@@ -592,12 +620,12 @@ function renderVVHeader() {
   const el = document.getElementById('hVChg');
   el.textContent = vc != null ? sgn(vc) + vc.toFixed(2) : '—';
   el.style.color = vc > 0 ? '#16a34a' : vc < 0 ? '#dc2626' : '#64748b';
-  document.getElementById('hTime').textContent = 'Updated ' + new Date(SNAP?.[PRODUCT]?.fetched_at).toLocaleTimeString();
+  document.getElementById('hTime').textContent = 'Updated ' + new Date(vvFetchedAt()).toLocaleTimeString();
 }
 
 // ── Vol2Vol: Key Levels (Call/Put Wall + ATM IV) ──────────────────────────────
 function renderWalls() {
-  const d = SNAP?.[PRODUCT]?.tabs?.[VV_TAB];
+  const d = vvTabData(VV_TAB);
   const fp = d?.future_price;
   if (!d?.strikes?.length) return;
 
@@ -626,7 +654,7 @@ function renderWalls() {
 
 // ── Vol2Vol: Ranges ───────────────────────────────────────────────────────────
 function renderRanges() {
-  const d = SNAP?.[PRODUCT]?.tabs?.[VV_TAB];
+  const d = vvTabData(VV_TAB);
   if (!d) return;
   const fp = d.future_price;
   const colors = [
@@ -658,7 +686,7 @@ function renderRanges() {
 
 // ── Vol2Vol: Deltas ───────────────────────────────────────────────────────────
 function renderDeltas() {
-  const d = SNAP?.[PRODUCT]?.tabs?.[VV_TAB];
+  const d = vvTabData(VV_TAB);
   if (!d) return;
   const puts  = (d.delta_levels || []).filter(x => x.side === 'put').sort((a, b) => a.delta - b.delta);
   const calls = (d.delta_levels || []).filter(x => x.side === 'call').sort((a, b) => a.delta - b.delta);
@@ -676,7 +704,7 @@ function renderDeltas() {
 
 // ── Vol2Vol: Stats ────────────────────────────────────────────────────────────
 function renderStats() {
-  const s = SNAP?.[PRODUCT]?.tabs?.[VV_TAB]?.stats || {};
+  const s = vvTabData(VV_TAB)?.stats || {};
   const put = s.put_total, call = s.call_total;
   const pct = put != null && call != null ? put / (put + call) : .5;
   const pcr = put != null && call != null && call > 0 ? (put / call).toFixed(2) : '—';
@@ -699,7 +727,7 @@ function renderStats() {
 function renderVVTabs() {
   const nav = document.getElementById('vv-tabs');
   nav.innerHTML = '';
-  Object.keys(SNAP?.[PRODUCT]?.tabs || {}).forEach(k => {
+  Object.keys(vvAllTabs()).forEach(k => {
     const btn = document.createElement('button');
     btn.className = 'tab-btn' + (k === VV_TAB ? ' on' : '');
     btn.textContent = VV_TAB_LABELS[k] || k;
@@ -721,7 +749,7 @@ function drawChart(animate = false) {
   if (vvChart) { vvChart.destroy(); vvChart = null; }
   const canvas = document.getElementById('chart');
 
-  const d = SNAP?.[PRODUCT]?.tabs?.[VV_TAB];
+  const d = vvTabData(VV_TAB);
   if (!d) {
     const ctx = canvas.getContext('2d');
     ctx.clearRect(0, 0, canvas.width, canvas.height);
@@ -732,8 +760,11 @@ function drawChart(animate = false) {
   }
 
   const { future_price: fp, strikes } = d;
+  const isIntraday  = VV_TAB === 'intraday';
+  const axisCenter  = isIntraday ? (intradayCenter() || fp) : fp;
+  const axisWin     = isIntraday ? 150 : VV_WIN;
   const vis = (strikes || [])
-    .filter(s => Math.abs(s.strike - fp) <= VV_WIN)
+    .filter(s => Math.abs(s.strike - axisCenter) <= axisWin)
     .sort((a, b) => a.strike - b.strike);
 
   if (!vis.length) {
@@ -824,7 +855,13 @@ function drawChart(animate = false) {
             color: '#64748b', font: { size: ticksFontSize, family: 'monospace' },
             maxRotation: axisFlipped ? 0 : 45,
             maxTicksLimit: axisFlipped ? 10 : 20,
-            autoSkip: true,
+            autoSkip: !(isIntraday && !axisFlipped),
+            ...(isIntraday && !axisFlipped ? {
+              callback: function(v) {
+                const num = parseInt(this.getLabelForValue(v));
+                return num % 25 === 0 ? String(num) : '';
+              }
+            } : {}),
           }
         },
         y: {
@@ -833,8 +870,13 @@ function drawChart(animate = false) {
           ticks: {
             color: '#64748b', font: { size: ticksFontSize, family: 'monospace' },
             maxTicksLimit: axisFlipped ? 20 : 8,
+            autoSkip: !(isIntraday && axisFlipped),
             callback: axisFlipped
-              ? function(v) { return this.getLabelForValue(v); }
+              ? function(v) {
+                  const lbl = this.getLabelForValue(v);
+                  if (isIntraday) { const n = parseInt(lbl); return n % 25 === 0 ? lbl : ''; }
+                  return lbl;
+                }
               : (v => v >= 1000 ? (v/1000).toFixed(0)+'k' : v),
           }
         },
@@ -869,6 +911,56 @@ function toggleAxis() {
   btn.classList.toggle('flipped', axisFlipped);
   btn.textContent = axisFlipped ? '↕ Y: Strike' : '↕ X: Strike';
   drawChart(false);
+}
+
+// ── Snapshot timeline ─────────────────────────────────────────────────────────
+function renderTimeline() {
+  const snaps = SNAP?.[PRODUCT]?.snapshots;
+  const track = document.getElementById('snapTrack');
+  const label = document.getElementById('snapLabel');
+  if (!track || !label) return;
+  if (!snaps?.length) { track.innerHTML = ''; label.textContent = ''; return; }
+
+  const n   = snaps.length;
+  const cur = SNAP_IDX < 0 ? n - 1 : Math.min(SNAP_IDX, n - 1);
+
+  let html = `<div style="position:absolute;top:50%;left:0;right:0;height:2px;background:var(--border);transform:translateY(-50%)"></div>`;
+  if (n > 1) {
+    const pct = (cur / (n - 1) * 100).toFixed(1);
+    html += `<div style="position:absolute;top:50%;left:0;width:${pct}%;height:2px;background:#2563eb;transform:translateY(-50%)"></div>`;
+  }
+  snaps.forEach((s, i) => {
+    const pct   = n === 1 ? 50 : (i / (n - 1) * 100).toFixed(1);
+    const active = i === cur;
+    const t     = new Date(s.fetched_at).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'});
+    html += `<div onclick="setSnapshotIdx(${i})" title="${t}"
+      style="position:absolute;left:${pct}%;top:50%;transform:translate(-50%,-50%);
+      width:${active?12:8}px;height:${active?12:8}px;border-radius:50%;cursor:pointer;
+      background:${active?'#2563eb':'#94a3b8'};
+      ${active?'box-shadow:0 0 0 3px rgba(37,99,235,.2);':''}"></div>`;
+  });
+  track.innerHTML = html;
+
+  const t = new Date(snaps[cur].fetched_at).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'});
+  label.textContent = t + (cur === n - 1 ? ' · latest' : '');
+  const prev = document.getElementById('snapPrev');
+  const next = document.getElementById('snapNext');
+  if (prev) prev.disabled = cur <= 0;
+  if (next) next.disabled = cur >= n - 1;
+}
+
+function setSnapshotIdx(i) {
+  const snaps = SNAP?.[PRODUCT]?.snapshots;
+  if (!snaps?.length) return;
+  SNAP_IDX = Math.max(0, Math.min(i, snaps.length - 1));
+  renderTimeline();
+  renderVVHeader(); renderWalls(); renderRanges(); renderDeltas(); renderStats(); drawChart(true);
+}
+
+function stepSnapshot(dir) {
+  const snaps = SNAP?.[PRODUCT]?.snapshots;
+  if (!snaps?.length) return;
+  setSnapshotIdx((SNAP_IDX < 0 ? snaps.length - 1 : SNAP_IDX) + dir);
 }
 
 // ── OI: Header ────────────────────────────────────────────────────────────────
