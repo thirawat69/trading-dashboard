@@ -1,5 +1,5 @@
 window.__COT_SNAPSHOT__ = {
-  "fetched_at": "2026-06-15T03:46:17.523091+00:00",
+  "fetched_at": "2026-06-16T11:23:18.293989+00:00",
   "market": "GOLD - COMEX (088691)",
   "report": "Disaggregated Futures-Only COT",
   "source": "CFTC (cftc.gov) \u2014 released weekly on Fridays",

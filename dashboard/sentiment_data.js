@@ -1,6 +1,6 @@
 window.__SENTIMENT__ = {
-  "fetched_at": "2026-06-15T03:46:18.631199+00:00",
-  "formed_at": 1781494809,
+  "fetched_at": "2026-06-16T11:23:19.604848+00:00",
+  "formed_at": 1781608808,
   "source": "fxssi.com Current Ratio",
   "symbols": {
     "XAUUSD": {
@@ -9,50 +9,50 @@ window.__SENTIMENT__ = {
         {
           "code": "ftroanda",
           "name": "Oan",
-          "buy": 86.72,
-          "sell": 13.28,
+          "buy": 80.89,
+          "sell": 19.11,
           "weight": 2002
         },
         {
           "code": "myfxbook",
           "name": "MyFxBook",
-          "buy": 58.76,
-          "sell": 41.24,
+          "buy": 54.53,
+          "sell": 45.47,
           "weight": 2001
         },
         {
           "code": "xm",
           "name": "XMGroup",
-          "buy": 46.23,
-          "sell": 53.77,
+          "buy": 39.88,
+          "sell": 60.12,
           "weight": 1001
         },
         {
           "code": "fxblue",
           "name": "FXBlue",
-          "buy": 56.3,
-          "sell": 43.7,
+          "buy": 53.5,
+          "sell": 46.5,
           "weight": 1000
         },
         {
           "code": "amarkets",
           "name": "Amarkets",
-          "buy": 52.67,
-          "sell": 47.33,
+          "buy": 49.36,
+          "sell": 50.64,
           "weight": 5
         },
         {
           "code": "dukscopy",
           "name": "Dukas",
-          "buy": 72.1,
-          "sell": 27.9,
+          "buy": 73.15,
+          "sell": 26.85,
           "weight": 3
         },
         {
           "code": "fxssi",
           "name": "FXSSI",
-          "buy": 30.51,
-          "sell": 69.49,
+          "buy": 45.13,
+          "sell": 54.87,
           "weight": 1
         },
         {
@@ -64,8 +64,8 @@ window.__SENTIMENT__ = {
         }
       ],
       "average": {
-        "buy": 65.57,
-        "sell": 34.43
+        "buy": 60.7,
+        "sell": 39.3
       }
     },
     "NAS100": {
@@ -74,28 +74,28 @@ window.__SENTIMENT__ = {
         {
           "code": "amarkets",
           "name": "Amarkets",
-          "buy": 43.59,
-          "sell": 56.41,
+          "buy": 30.1,
+          "sell": 69.9,
           "weight": 5
         },
         {
           "code": "dukscopy",
           "name": "Dukas",
-          "buy": 27.17,
-          "sell": 72.83,
+          "buy": 25.82,
+          "sell": 74.18,
           "weight": 3
         },
         {
           "code": "fxssi",
           "name": "FXSSI",
-          "buy": 45.5,
-          "sell": 54.5,
+          "buy": 49.52,
+          "sell": 50.48,
           "weight": 1
         }
       ],
       "average": {
-        "buy": 38.33,
-        "sell": 61.67
+        "buy": 30.83,
+        "sell": 69.17
       }
     }
   }

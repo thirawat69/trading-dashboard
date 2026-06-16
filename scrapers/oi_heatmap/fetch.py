@@ -2,6 +2,18 @@
 OI Heatmap Playwright fetcher.
 
 fetch_all_tabs(product, session, headless) → dict
+
+Sequence inside fetch_all_tabs:
+  1. safe_goto  — load page (no capture: server remembers last active tab)
+  2. wait_for_updatepanel_idle
+  3. click lbProductTab — confirms the correct product (Gold/Nasdaq);
+       server session/cookie may have remembered a different product
+  4. wait_for_updatepanel_idle
+  5. select_option ddlStrikes → "-1" (All) — widens the strike range;
+       response is discarded (don't know which tab is currently active)
+  6. wait_for_updatepanel_idle
+  7. loop over TAB_BUTTONS (oi / oi_change / volume):
+       click tab → expect_body → _store → wait_for_updatepanel_idle
 """
 
 from pathlib import Path
@@ -62,6 +74,15 @@ async def fetch_all_tabs(
         print(f"  Loading {product}/oi_heatmap...")
         await safe_goto(page, url, wait_until="domcontentloaded", timeout=30000)
         await wait_for_updatepanel_idle(page, timeout=10.0)
+
+        # Confirm product — server may remember a different product from a prior session.
+        # lbProductTab is always present and triggers a postback to lock in the correct product.
+        try:
+            await page.click("a[id*='lbProductTab']", timeout=8000)
+            await wait_for_updatepanel_idle(page, timeout=10.0)
+            print(f"  Product tab confirmed")
+        except Exception as e:
+            print(f"  Could not click product tab (continuing anyway): {e}")
 
         # Select "(All)" strikes so all strikes are visible for every tab.
         # Don't store this response — we don't know which tab is active yet.
