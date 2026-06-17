@@ -120,10 +120,27 @@ OI_SNAP  = window.__OI_SNAPSHOT__    // OI Heatmap
 COT      = window.__COT_SNAPSHOT__   // COT
 SENT     = window.__SENTIMENT__      // Sentiment
 
-// UI state: PRODUCT, VIEW, VV_TAB, OI_TAB, axisFlipped
+// UI state: PRODUCT, VIEW, VV_TAB, OI_TAB, SNAP_IDX, axisFlipped
 // Key functions: switchProduct(), switchView(), drawChart(), renderHeatmap(),
-//                renderCOTChart(), renderSentiment()
+//                renderCOTChart(), renderSentiment(), renderTimeline()
 ```
+
+**`window.__SNAPSHOT__` format** (written by `scrapers/vol2vol/dashboard.py`):
+```js
+{
+  gold: {
+    contract: "G3TM6",
+    snapshots: [                          // all fetches for today, sorted ascending
+      { fetched_at: "2026-06-16T11:19:52", tabs: { intraday: {...}, eod: {...}, ... } },
+      { fetched_at: "2026-06-16T12:28:43", tabs: { ... } },
+      ...
+    ]
+  },
+  nasdaq: { contract: "...", snapshots: [...] }
+}
+```
+`SNAP_IDX` = -1 means latest snapshot; 0..n-1 pins a historical one.
+The frontend timeline scrubber (inside `#vv-timeline`) lets the user browse snapshots.
 
 Data shape is `{gold: {...}, nasdaq: {...}}` — single toggle switches products without reload.
 
@@ -214,6 +231,45 @@ The following have been discussed or are natural next steps:
 - **Intraday delta flow** — track how net delta is shifting throughout the day using periodic snapshots
 - **0DTE key levels overlay** — on the Vol2Vol chart, mark the ±1σ/2σ levels and top OI strikes together as a "battlefield map"
 - **OI concentration score** — single number showing how concentrated OI is around ATM vs spread out (kurtosis of the OI distribution)
+
+---
+
+## Vol2Vol Intraday Data Behavior (empirically verified)
+
+These behaviors were confirmed by analyzing snapshot files for Gold contract G3WM6
+across 25 intraday snapshots (notebooks/g3wm6_intraday_oi_monotonic.ipynb).
+
+### 1. Intraday volume is cumulative within a CME session — not the full day
+
+`call_value` / `put_value` in the Intraday tab accumulate monotonically within one
+CME trading session. They are **NOT** cumulative across the entire calendar day.
+
+CME resets the intraday counter at the daily maintenance window: **17:00–18:00 ET**
+(≈ 04:00–05:00 Bangkok time). Any snapshot taken just after this window will show
+values close to 0 even though earlier snapshots in the same calendar day had high
+values. This means:
+
+- A scraper running across the reset window will observe apparent "decreases" in
+  intraday volume — this is expected and correct, not a bug or data error.
+- When comparing snapshots from the same calendar day, check whether they are from
+  the same session (both before or both after the reset time) before drawing
+  conclusions about volume growth.
+
+### 2. CME only returns strikes within ±3σ of the current futures price
+
+QuikStrike does not return all strikes for a contract. It returns only the strikes
+that fall within the ±3σ expected range **at the time of the fetch**. As expiration
+approaches (DTE decreases), the 3σ range narrows — so later-in-the-day snapshots
+have fewer strikes than earlier ones.
+
+Practical consequences:
+- A strike that was present in a 10:00 AM snapshot may be absent in a 3:00 PM
+  snapshot simply because the futures price moved away from it and it fell outside
+  the ±3σ window — not because trading stopped.
+- The Intraday heatmap (see notebook) shows this clearly: active strike range
+  contracts over time as IV / expected range narrows.
+- Do not assume that a missing strike has zero volume; it may have had volume
+  earlier that is now outside the fetch window.
 
 ---
 
